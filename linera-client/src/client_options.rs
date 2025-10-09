@@ -112,7 +112,7 @@ pub struct ClientContextOptions {
     #[arg(long, env = "LINERA_OTEL_TRACE_FILE")]
     pub otel_trace_file: Option<String>,
 
-    /// OpenTelemetry OTLP exporter endpoint (requires tempo feature).
+    /// OpenTelemetry OTLP exporter endpoint (requires otel feature).
     #[arg(long, env = "LINERA_OTEL_EXPORTER_OTLP_ENDPOINT")]
     pub otel_exporter_otlp_endpoint: Option<String>,
 

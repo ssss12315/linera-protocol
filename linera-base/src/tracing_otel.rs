@@ -1,28 +1,26 @@
 // Copyright (c) Zefchain Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-//! OpenTelemetry integration for tracing with OTLP export to Tempo and Chrome trace export.
+//! OpenTelemetry integration for tracing with OTLP export and Chrome trace export.
 
 use tracing_chrome::ChromeLayerBuilder;
 use tracing_subscriber::{layer::SubscriberExt as _, util::SubscriberInitExt as _};
-#[cfg(feature = "tempo")]
+#[cfg(feature = "otel")]
 use {
     opentelemetry::{global, trace::TracerProvider},
     opentelemetry_otlp::{SpanExporter, WithExportConfig},
     opentelemetry_sdk::{trace::SdkTracerProvider, Resource},
     tracing_opentelemetry::OpenTelemetryLayer,
-    tracing_subscriber::{
-        filter::{filter_fn, FilterExt as _},
-        layer::Layer,
-    },
+    tracing_subscriber::{filter::filter_fn, layer::Layer},
 };
 
-/// Initializes tracing with OpenTelemetry OTLP exporter to Tempo.
+/// Initializes tracing with OpenTelemetry OTLP exporter.
 ///
-/// Exports traces to Tempo using the OTLP protocol. Requires the `tempo` feature.
+/// Exports traces using the OTLP protocol to any OpenTelemetry-compatible backend.
+/// Requires the `otel` feature.
 /// Only enables OpenTelemetry if OTEL_EXPORTER_OTLP_ENDPOINT env var is set.
 /// This prevents DNS errors in environments where OpenTelemetry is not deployed.
-#[cfg(feature = "tempo")]
+#[cfg(feature = "otel")]
 pub fn init_with_opentelemetry(log_name: &str, otlp_endpoint: Option<&str>) {
     // Check if OpenTelemetry endpoint is configured via parameter or env var
     let endpoint = match otlp_endpoint {
@@ -59,15 +57,17 @@ pub fn init_with_opentelemetry(log_name: &str, otlp_endpoint: Option<&str>) {
     global::set_tracer_provider(tracer_provider.clone());
     let tracer = tracer_provider.tracer("linera");
 
-    let telemetry_only_filter =
-        filter_fn(|metadata| metadata.is_span() && metadata.target() == "telemetry_only");
+    let otel_filter = filter_fn(|metadata| {
+        if !metadata.is_span() {
+            return false;
+        }
+        metadata
+            .fields()
+            .field("otel.skip")
+            .is_none()
+    });
 
-    let otel_env_filter = tracing_subscriber::EnvFilter::builder()
-        .with_default_directive(tracing_subscriber::filter::LevelFilter::INFO.into())
-        .from_env_lossy();
-
-    let opentelemetry_filter = otel_env_filter.or(telemetry_only_filter);
-    let opentelemetry_layer = OpenTelemetryLayer::new(tracer).with_filter(opentelemetry_filter);
+    let opentelemetry_layer = OpenTelemetryLayer::new(tracer).with_filter(otel_filter);
 
     let config = crate::tracing::get_env_config(log_name);
     let maybe_log_file_layer = config.maybe_log_file_layer();
@@ -81,11 +81,11 @@ pub fn init_with_opentelemetry(log_name: &str, otlp_endpoint: Option<&str>) {
         .init();
 }
 
-/// Fallback when tempo feature is not enabled.
-#[cfg(not(feature = "tempo"))]
+/// Fallback when otel feature is not enabled.
+#[cfg(not(feature = "otel"))]
 pub fn init_with_opentelemetry(log_name: &str, _otlp_endpoint: Option<&str>) {
     eprintln!(
-        "OTLP export requires the 'tempo' feature to be enabled! Falling back to default tracing initialization."
+        "OTLP export requires the 'otel' feature to be enabled! Falling back to default tracing initialization."
     );
     crate::tracing::init(log_name);
 }

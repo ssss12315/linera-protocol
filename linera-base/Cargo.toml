@@ -18,7 +18,7 @@ workspace = true
 metrics = ["prometheus"]
 reqwest = ["dep:reqwest"]
 revm = []
-tempo = ["opentelemetry-otlp"]
+otel = ["opentelemetry-otlp"]
 test = ["test-strategy", "proptest"]
 web = [
     "getrandom/js",
