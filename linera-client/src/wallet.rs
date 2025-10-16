@@ -124,6 +124,23 @@ impl Wallet {
         Ok(())
     }
 
+ impl RocksDbStore {
+-    // Existing: write keys in a loop (multiple small writes)
+-    for (k, v) in pending.iter() {
+-        self.db.put(k, v)?;
+-    }
++    // Added: Use a WriteBatch to reduce write amplification and syscalls.
++    // Benefit: groups multiple puts into a single atomic write for better throughput.
++    let mut batch = rocksdb::WriteBatch::default();      
++    for (k, v) in pending.iter() {                       
++        batch.put(k, v); 
++    }
++    let opts = rocksdb::WriteOptions::default();        
++    self.db.write_opt(batch, &opts)?;                    
+     Ok(())
+ }
+
+    
     pub fn set_default_chain(&mut self, chain_id: ChainId) -> Result<(), Error> {
         ensure!(
             self.chains.contains_key(&chain_id),
