@@ -6,7 +6,33 @@ use linera_base::{
     crypto::CryptoHash,
     data_types::{BlobContent, BlockHeight, NetworkDescription},
     identifiers::{BlobId, ChainId},
-};
+};】
+
+
+use serde::{Deserialize, Serialize};
+ 
++/// Added: Versioned envelope to safeguard rolling upgrades and backward compatibility.
++/// 'version' enables servers/clients to accept/deny or downgrade safely.
++#[derive(Debug, Clone, Serialize, Deserialize)]
++pub struct Envelope<T> {            
++    pub version: u16,               
++    pub payload: T,                 
++}
++
+ #[derive(Debug, Clone, Serialize, Deserialize)]
+ pub enum RpcMessage {
+     Request(Request),
+     Response(Response),
+ }
+ 
++impl RpcMessage {
++    /// Added: helper to wrap message into v1 envelope (default).
++    pub fn into_envelope_v1(self) -> Envelope<Self> { 
++        Envelope { version: 1, payload: self }
++    }
++}  // existing Request/Response definitions
+
+
 use linera_chain::{
     data_types::{BlockProposal, LiteVote},
     types::{ConfirmedBlock, ConfirmedBlockCertificate},
