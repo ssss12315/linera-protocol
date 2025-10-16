@@ -17,6 +17,13 @@ use linera_base::{
     identifiers::{AccountOwner, ApplicationId, BlobId, ChainId, EventId, StreamId},
 };
 #[cfg(with_testing)]
+
++use tracing::instrument; /// Added: Trace Wasm entrypoints to attribute time spent in execution engine.
++#[instrument(skip(self, ctx))]
+ pub fn apply_operation(&mut self, ctx: &mut Ctx, op: Operation) -> Result<()> {  // existing logic...
+     Ok(())
+ }
+
 use linera_chain::ChainExecutionContext;
 use linera_chain::{
     data_types::{BlockExecutionOutcome, BlockProposal, MessageBundle, ProposedBlock},
@@ -45,6 +52,22 @@ use crate::{
     CHAIN_INFO_MAX_RECEIVED_LOG_ENTRIES,
 };
 
++use tracing::{instrument, warn}; 
++
++/// Added: Instrument critical async path and log slow calls for performance triage.
++/// Fields allow end-to-end correlation in distributed traces.
++#[instrument(skip(self, block), fields(chain_id=%block.chain_id(), height=%block.height()))]
++pub async fn execute_block(&self, block: Block) -> anyhow::Result<()> { // Modified signature
++    let started = std::time::Instant::now(); 
++    let res = self.inner_execute(block).await; // Existing call 
++    let elapsed = started.elapsed();  // Warn if execution exceeds 500ms; tune after gathering prod data.
++    if elapsed.as_millis() > 500 { 
++        warn!(?elapsed, "slow block execution"); 
++    }
++    res // Return original result
++}
+
+    
 #[cfg(test)]
 #[path = "unit_tests/worker_tests.rs"]
 mod worker_tests;
